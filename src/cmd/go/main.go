@@ -7,17 +7,6 @@
 package main
 
 import (
-	"cmd/go/internal/workcmd"
-	"context"
-	"flag"
-	"fmt"
-	"internal/buildcfg"
-	"log"
-	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
-
 	"cmd/go/internal/base"
 	"cmd/go/internal/bug"
 	"cmd/go/internal/cfg"
@@ -41,6 +30,16 @@ import (
 	"cmd/go/internal/version"
 	"cmd/go/internal/vet"
 	"cmd/go/internal/work"
+	"cmd/go/internal/workcmd"
+	"context"
+	"flag"
+	"fmt"
+	"internal/buildcfg"
+	"log"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 )
 
 func init() {
@@ -91,7 +90,7 @@ func main() {
 	flag.Usage = base.Usage
 	flag.Parse()
 	log.SetFlags(0)
-
+	// 就是解析命令行参数, 解析完 args = ["run/build","-o","xxx/xxx/main","xxx/xxx/main.go"] 这样的数组
 	args := flag.Args()
 	if len(args) < 1 {
 		base.Usage()
@@ -147,6 +146,7 @@ func main() {
 		os.Exit(2)
 	}
 
+	// 从左至右依次解析 go 指令
 BigCmdLoop:
 	for bigCmd := base.Go; ; {
 		for _, cmd := range bigCmd.Commands {

@@ -368,6 +368,7 @@ TEXT runtime·usleep_trampoline(SB),NOSPLIT,$0
 
 TEXT runtime·settls(SB),NOSPLIT,$32
 	// Nothing to do on Darwin, pthread already set thread-local storage up.
+	// pthread 已经设置了 tls
 	RET
 
 TEXT runtime·sysctl_trampoline(SB),NOSPLIT,$0

@@ -634,14 +634,14 @@ TEXT runtime·settls(SB),NOSPLIT,$32
 	// Android stores the TLS offset in runtime·tls_g.
 	SUBQ	runtime·tls_g(SB), DI
 #else
-	ADDQ	$8, DI	// ELF wants to use -8(FS)
+	ADDQ	$8, DI	// ELF wants to use -8(FS) , DI = DI + 8, ELF 格式使用 -8(FS)
 #endif
-	MOVQ	DI, SI
-	MOVQ	$0x1002, DI	// ARCH_SET_FS
-	MOVQ	$SYS_arch_prctl, AX
+	MOVQ	DI, SI  // SI = DI
+	MOVQ	$0x1002, DI	// ARCH_SET_FS, DI = 0x1002,   0x1002 == ARCH_SET_FS
+	MOVQ	$SYS_arch_prctl, AX   // arch_prctl系统调用
 	SYSCALL
-	CMPQ	AX, $0xfffffffffffff001
-	JLS	2(PC)
+	CMPQ	AX, $0xfffffffffffff001 // 验证是否成功
+	JLS	2(PC)                       // 成功，跳转2个指令
 	MOVL	$0xf1, 0xf1  // crash
 	RET
 

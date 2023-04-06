@@ -113,6 +113,7 @@ func (s *source) rewind() {
 func (s *source) nextch() {
 redo:
 	s.col += uint(s.chw)
+	println("syntax/source:", s.ch)
 	if s.ch == '\n' {
 		s.line++
 		s.col = 0

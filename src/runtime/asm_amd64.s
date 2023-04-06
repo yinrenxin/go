@@ -147,15 +147,17 @@ GLOBL bad_cpu_msg<>(SB), RODATA, $84
 
 TEXT runtime·rt0_go(SB),NOSPLIT|TOPFRAME,$0
 	// copy arguments forward on an even stack
+	// 将参数向前复制到一个偶数栈上
 	MOVQ	DI, AX		// argc
 	MOVQ	SI, BX		// argv
-	SUBQ	$(5*8), SP		// 3args 2auto
+	SUBQ	$(5*8), SP		// 3args 2auto // 分配栈空间
 	ANDQ	$~15, SP
 	MOVQ	AX, 24(SP)
 	MOVQ	BX, 32(SP)
 
 	// create istack out of the given (operating system) stack.
 	// _cgo_init may update stackguard.
+	// 初始化 g0 执行栈
 	MOVQ	$runtime·g0(SB), DI
 	LEAQ	(-64*1024+104)(SP), BX
 	MOVQ	BX, g_stackguard0(DI)
@@ -164,6 +166,7 @@ TEXT runtime·rt0_go(SB),NOSPLIT|TOPFRAME,$0
 	MOVQ	SP, (g_stack+stack_hi)(DI)
 
 	// find out information about the processor we're on
+	// 确定CPU信息
 	MOVL	$0, AX
 	CPUID
 	CMPL	AX, $0
@@ -233,6 +236,7 @@ needtls:
 #endif
 #ifdef GOOS_darwin
 	// skip TLS setup on Darwin
+	// 在 Darwin 系统上跳过 TLS 设置
 	JMP ok
 #endif
 #ifdef GOOS_openbsd
@@ -240,18 +244,22 @@ needtls:
 	JMP ok
 #endif
 
-	LEAQ	runtime·m0+m_tls(SB), DI
-	CALL	runtime·settls(SB)
+	LEAQ	runtime·m0+m_tls(SB), DI // DI = m0.tls
+	CALL	runtime·settls(SB) // 调用settls，将 TLS 地址设置到 DI
 
 	// store through it, to make sure it works
+	// 使用它进行存储，确保能正常运行
 	get_tls(BX)
 	MOVQ	$0x123, g(BX)
 	MOVQ	runtime·m0+m_tls(SB), AX
-	CMPQ	AX, $0x123
-	JEQ 2(PC)
-	CALL	runtime·abort(SB)
+	CMPQ	AX, $0x123          // 判断 TLS 是否设置成功
+	JEQ 2(PC)                   // 如果相等则向后跳转两条指令
+	CALL	runtime·abort(SB)   // 使用 INT 指令执行中断
 ok:
 	// set the per-goroutine and per-mach "registers"
+	// 程序刚刚启动，此时位于主线程
+    // 当前栈与资源保存在 g0
+    // 该线程保存在 m0
 	get_tls(BX)
 	LEAQ	runtime·g0(SB), CX
 	MOVQ	CX, g(BX)
@@ -310,24 +318,28 @@ ok:
 	CMPL	AX, $NEED_OS_SUPPORT_AX
 	JNE	bad_cpu
 #endif
-
+    // runtime/runtime1.go
+    // 一些检查, 运行时类型检查， 系统参数的获取以及影响内存管理和程序调度的相关常量的初始化
+    // 校验一些编译器的行为是否正确, 比如计算int8 uint8 等等类型的大小
 	CALL	runtime·check(SB)
 
-	MOVL	24(SP), AX		// copy argc
+	MOVL	24(SP), AX		// copy argc 复制 argc
 	MOVL	AX, 0(SP)
-	MOVQ	32(SP), AX		// copy argv
+	MOVQ	32(SP), AX		// copy argv 复制 argv
 	MOVQ	AX, 8(SP)
-	CALL	runtime·args(SB)
-	CALL	runtime·osinit(SB)
-	CALL	runtime·schedinit(SB)
+	CALL	runtime·args(SB) // 处理程序参数, 对于 Darwin 系统而言，只负责获取程序的 executable_path,
+	CALL	runtime·osinit(SB) // osinit 完成对 CPU 核心数的获取
+	CALL	runtime·schedinit(SB) // 调度器初始化 进行各种运行时组件初始化工作，这包括我们的调度器与内存分配器、回收器的初始化 src/runtime/proc.go
 
 	// create a new goroutine to start program
+	// 创建一个新的 goroutine 来启动程序
 	MOVQ	$runtime·mainPC(SB), AX		// entry
 	PUSHQ	AX
-	CALL	runtime·newproc(SB)
+	CALL	runtime·newproc(SB) // 负责根据主 goroutine （即 main）入口地址创建可被运行时调度的执行单元
 	POPQ	AX
 
 	// start this M
+	// 启动这个 M，mstart 应该永不返回
 	CALL	runtime·mstart(SB)
 
 	CALL	runtime·abort(SB)	// mstart should never return

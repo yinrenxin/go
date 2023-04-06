@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="go build cmd/go go_Test" type="GoApplicationRunConfiguration" factoryName="Go Application">
+    <module name="go" />
+    <target name="@@@LOCAL@@@" />
+    <working_directory value="$PROJECT_DIR$/src/cmd" />
+    <parameters value="build -o $PROJECT_DIR$/../go_test/main $PROJECT_DIR$/../go_test/main.go" />
+    <kind value="PACKAGE" />
+    <package value="cmd/go" />
+    <directory value="$PROJECT_DIR$" />
+    <filePath value="$PROJECT_DIR$/src/cmd/go/main.go" />
+    <method v="2" />
+  </configuration>
+</component>

@@ -224,6 +224,7 @@ func sysargs(argc int32, argv **byte) {
 	}
 
 	// skip NULL separator
+	// 跳过 NULL 分隔符
 	n++
 
 	// now argv+n is auxv
@@ -235,6 +236,9 @@ func sysargs(argc int32, argv **byte) {
 	// auxv, such as when loaded as a library on Android.
 	// Fall back to /proc/self/auxv.
 	fd := open(&procAuxv[0], 0 /* O_RDONLY */, 0)
+	// 处理无法读取 auxv 的情况：
+	// 一种方法是尝试读取 /proc/self/auxv。
+	// 如果这个文件不存在，还可以尝试调用 mmap 等内存分配的系统调用直接测试物理页的大小。
 	if fd < 0 {
 		// On Android, /proc/self/auxv might be unreadable (issue 9229), so we fallback to
 		// try using mincore to detect the physical page size.
@@ -402,9 +406,9 @@ func unminit() {
 func mdestroy(mp *m) {
 }
 
-//#ifdef GOARCH_386
-//#define sa_handler k_sa_handler
-//#endif
+// #ifdef GOARCH_386
+// #define sa_handler k_sa_handler
+// #endif
 
 func sigreturn()
 func sigtramp() // Called via C ABI

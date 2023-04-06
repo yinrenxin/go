@@ -9,6 +9,12 @@ package work
 import (
 	"bufio"
 	"bytes"
+	"cmd/go/internal/base"
+	"cmd/go/internal/cache"
+	"cmd/go/internal/cfg"
+	"cmd/go/internal/load"
+	"cmd/go/internal/trace"
+	"cmd/internal/buildid"
 	"container/heap"
 	"context"
 	"debug/elf"
@@ -20,13 +26,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"cmd/go/internal/base"
-	"cmd/go/internal/cache"
-	"cmd/go/internal/cfg"
-	"cmd/go/internal/load"
-	"cmd/go/internal/trace"
-	"cmd/internal/buildid"
 )
 
 // A Builder holds global state about a build.
@@ -260,6 +259,7 @@ func NewBuilder(workDir string) *Builder {
 	} else if cfg.BuildN {
 		b.WorkDir = "$WORK"
 	} else {
+		// 临时目录
 		tmp, err := os.MkdirTemp(cfg.Getenv("GOTMPDIR"), "go-build")
 		if err != nil {
 			base.Fatalf("go: creating work dir: %v", err)
