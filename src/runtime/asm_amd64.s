@@ -151,26 +151,26 @@ TEXT runtime·rt0_go(SB),NOSPLIT|TOPFRAME,$0
 	MOVQ	DI, AX		// argc
 	MOVQ	SI, BX		// argv
 	SUBQ	$(5*8), SP		// 3args 2auto // 分配栈空间
-	ANDQ	$~15, SP
-	MOVQ	AX, 24(SP)
-	MOVQ	BX, 32(SP)
+	ANDQ	$~15, SP        // 将SP值对齐16字节（将SP值低4bit清零，SP值保持不变或者减小，栈空间扩大）
+	MOVQ	AX, 24(SP)      // 将AX值(argc)存入SP+24栈地址上
+	MOVQ	BX, 32(SP)      // 将BX值(argv)存入SP+32栈地址上
 
 	// create istack out of the given (operating system) stack.
 	// _cgo_init may update stackguard.
 	// 初始化 g0 执行栈
-	MOVQ	$runtime·g0(SB), DI
-	LEAQ	(-64*1024+104)(SP), BX
-	MOVQ	BX, g_stackguard0(DI)
-	MOVQ	BX, g_stackguard1(DI)
-	MOVQ	BX, (g_stack+stack_lo)(DI)
-	MOVQ	SP, (g_stack+stack_hi)(DI)
+	MOVQ	$runtime·g0(SB), DI     // 将runtime·g0全局变量（地址）存入DI寄存器
+	LEAQ	(-64*1024+104)(SP), BX  // 将SP-64*1024+104值存入BX寄存器
+	MOVQ	BX, g_stackguard0(DI)   // 将BX值（SP-64*1024+104）赋值给runtime·g0.stackguard0
+	MOVQ	BX, g_stackguard1(DI)   // 将BX值（SP-64*1024+104）赋值给runtime·g0.stackguard1
+	MOVQ	BX, (g_stack+stack_lo)(DI) // 将BX值（SP-64*1024+104）赋值给runtime·g0.stack.stack_lo
+	MOVQ	SP, (g_stack+stack_hi)(DI) // 将当前SP值赋值给runtime·g0.stack.stack_hi
 
 	// find out information about the processor we're on
 	// 确定CPU信息
-	MOVL	$0, AX
-	CPUID
-	CMPL	AX, $0
-	JE	nocpuinfo
+	MOVL	$0, AX      // 将0赋值给AX寄存器，CPUID指令将根据AX值打印不同的CPU信息
+	CPUID               // 打印CPU信息，并将CPU信息存于BX，DX，CX寄存器，并将处理结果存于AX寄存器
+	CMPL	AX, $0      // 比较AX值与0
+	JE	nocpuinfo       // 如果AX值等于0，表示无CPU信息，则调转到nocpuinfo
 
 	CMPL	BX, $0x756E6547  // "Genu"
 	JNE	notintel
@@ -178,7 +178,7 @@ TEXT runtime·rt0_go(SB),NOSPLIT|TOPFRAME,$0
 	JNE	notintel
 	CMPL	CX, $0x6C65746E  // "ntel"
 	JNE	notintel
-	MOVB	$1, runtime·isIntel(SB)
+	MOVB	$1, runtime·isIntel(SB) // 如果是intel CPU，则设置全局变量runtime·isIntel为1
 
 notintel:
 	// Load EAX=1 cpuid flags
@@ -188,11 +188,11 @@ notintel:
 
 nocpuinfo:
 	// if there is an _cgo_init, call it.
-	MOVQ	_cgo_init(SB), AX
-	TESTQ	AX, AX
-	JZ	needtls
+	MOVQ	_cgo_init(SB), AX   // 将_cgo_init（unsafe.Pointer）存入AX寄存器
+	TESTQ	AX, AX              // 检测AX值（_cgo_init）是否为空
+	JZ	needtls                 // 如果AX值为0（没有使能cgo），则跳转到needtls
 	// arg 1: g0, already in DI
-	MOVQ	$setg_gcc<>(SB), SI // arg 2: setg_gcc
+	MOVQ	$setg_gcc<>(SB), SI // arg 2: setg_gcc  //将setg_gcc（函数地址）存入SI寄存器
 #ifdef GOOS_android
 	MOVQ	$runtime·tls_g(SB), DX 	// arg 3: &tls_g
 	// arg 4: TLS base, stored in slot 0 (Android's TLS_SLOT_SELF).
@@ -209,14 +209,14 @@ nocpuinfo:
 	MOVQ	SI, DX // arg 2
 	MOVQ	DI, CX // arg 1
 #endif
-	CALL	AX
+	CALL	AX                              // 调用AX值表示的函数（_cgo_init指针指向的函数）
 
 	// update stackguard after _cgo_init
-	MOVQ	$runtime·g0(SB), CX
-	MOVQ	(g_stack+stack_lo)(CX), AX
-	ADDQ	$const__StackGuard, AX
-	MOVQ	AX, g_stackguard0(CX)
-	MOVQ	AX, g_stackguard1(CX)
+	MOVQ	$runtime·g0(SB), CX             // 将runtime·g0（全局变量）存入CX寄存器
+	MOVQ	(g_stack+stack_lo)(CX), AX      // 将runtime·g0.stack.stack_lo存入AX寄存器
+	ADDQ	$const__StackGuard, AX          // 将AX值（runtime·g0.stack.stack_lo）+ StackGuard 存入AX寄存器
+	MOVQ	AX, g_stackguard0(CX)           // 将AX值赋值runtime·g0.stackguard0
+	MOVQ	AX, g_stackguard1(CX)           // 将AX值赋值runtime·g0.stackguard1
 
 #ifndef GOOS_windows
 	JMP ok
@@ -244,31 +244,31 @@ needtls:
 	JMP ok
 #endif
 
-	LEAQ	runtime·m0+m_tls(SB), DI // DI = m0.tls
-	CALL	runtime·settls(SB) // 调用settls，将 TLS 地址设置到 DI
+	LEAQ	runtime·m0+m_tls(SB), DI // DI = m0.tls // 将runtime·m0.tls地址保存到DI寄存器
+	CALL	runtime·settls(SB)       // 调用runtime·settls函数，将runtime·m0.tls[0]设置成线程TLS
 
 	// store through it, to make sure it works
 	// 使用它进行存储，确保能正常运行
-	get_tls(BX)
-	MOVQ	$0x123, g(BX)
-	MOVQ	runtime·m0+m_tls(SB), AX
-	CMPQ	AX, $0x123          // 判断 TLS 是否设置成功
-	JEQ 2(PC)                   // 如果相等则向后跳转两条指令
-	CALL	runtime·abort(SB)   // 使用 INT 指令执行中断
+	get_tls(BX)                         // 将TLS寄存器值保存到BX寄存器
+	MOVQ	$0x123, g(BX)               // 将0x123赋值给BX值指向的地址
+	MOVQ	runtime·m0+m_tls(SB), AX    // 将runtime·m0.tls[0]值保存到AX
+	CMPQ	AX, $0x123          // 判断 TLS 是否设置成功, 跟0x123对比
+	JEQ 2(PC)                   // 如果相等则向后跳转两条指令, 跳转到ok的位置
+	CALL	runtime·abort(SB)   // 否者 使用runtime·abort退出, 使用INT	3
 ok:
 	// set the per-goroutine and per-mach "registers"
 	// 程序刚刚启动，此时位于主线程
     // 当前栈与资源保存在 g0
     // 该线程保存在 m0
-	get_tls(BX)
-	LEAQ	runtime·g0(SB), CX
-	MOVQ	CX, g(BX)
-	LEAQ	runtime·m0(SB), AX
+	get_tls(BX)                 // 将TLS寄存器（-8(FS)）值保存到BX寄存器
+	LEAQ	runtime·g0(SB), CX  // 将runtime·g0的地址保存到CX寄存器
+	MOVQ	CX, g(BX)           // 将CX值（runtime·g0的地址）保存到TLS（即runtime·m0.tls[0]）
+	LEAQ	runtime·m0(SB), AX  // 将runtime·m0的地址保存到AX寄存器
 
 	// save m->g0 = g0
-	MOVQ	CX, m_g0(AX)
+	MOVQ	CX, m_g0(AX)         // 将CX值（runtime·g0的地址）赋值给runtime·m0.g0
 	// save m0 to g0->m
-	MOVQ	AX, g_m(CX)
+	MOVQ	AX, g_m(CX)          // 将AX值（runtime·m0的地址）赋值给runtime·g0.m
 
 	CLD				// convention is D is always left cleared
 
@@ -323,26 +323,29 @@ ok:
     // 校验一些编译器的行为是否正确, 比如计算int8 uint8 等等类型的大小
 	CALL	runtime·check(SB)
 
-	MOVL	24(SP), AX		// copy argc 复制 argc
-	MOVL	AX, 0(SP)
-	MOVQ	32(SP), AX		// copy argv 复制 argv
-	MOVQ	AX, 8(SP)
+	MOVL	24(SP), AX		// copy argc 复制 argc // 将SP+24值（argc）赋值给AX寄存器
+	MOVL	AX, 0(SP)       // 将AX值（argc）保存到SP栈地址上
+	MOVQ	32(SP), AX		// copy argv 复制 argv // 将SP+32值（argv）赋值给AX寄存器
+	MOVQ	AX, 8(SP)        // 将AX值（argv）保存到SP+8栈地址上
 	CALL	runtime·args(SB) // 处理程序参数, 对于 Darwin 系统而言，只负责获取程序的 executable_path,
 	CALL	runtime·osinit(SB) // osinit 完成对 CPU 核心数的获取
 	CALL	runtime·schedinit(SB) // 调度器初始化 进行各种运行时组件初始化工作，这包括我们的调度器与内存分配器、回收器的初始化 src/runtime/proc.go
 
 	// create a new goroutine to start program
+	//go func() {
+	//    runtime.main
+	//}
 	// 创建一个新的 goroutine 来启动程序
 	MOVQ	$runtime·mainPC(SB), AX		// entry
-	PUSHQ	AX
-	CALL	runtime·newproc(SB) // 负责根据主 goroutine （即 main）入口地址创建可被运行时调度的执行单元
-	POPQ	AX
+	PUSHQ	AX                          // 将AX值（runtime·main）压栈
+	CALL	runtime·newproc(SB)         // 负责根据主 goroutine （即 main）入口地址创建可被运行时调度的执行单元
+	POPQ	AX                          // 将栈顶SP弹出保存到AX寄存器
 
 	// start this M
 	// 启动这个 M，mstart 应该永不返回
-	CALL	runtime·mstart(SB)
+	CALL	runtime·mstart(SB)  // 调用mstart，将当前启动线程作为m启动
 
-	CALL	runtime·abort(SB)	// mstart should never return
+	CALL	runtime·abort(SB)	// mstart should never return, 一般情况下mstart不会退出（循环调度g），否则退出进程
 	RET
 
 bad_cpu: // show that the program requires a certain microarchitecture level.
@@ -386,25 +389,25 @@ TEXT runtime·mstart(SB),NOSPLIT|TOPFRAME,$0
 // func gogo(buf *gobuf)
 // restore state from Gobuf; longjmp
 TEXT runtime·gogo(SB), NOSPLIT, $0-8
-	MOVQ	buf+0(FP), BX		// gobuf
-	MOVQ	gobuf_g(BX), DX
-	MOVQ	0(DX), CX		// make sure g != nil
-	JMP	gogo<>(SB)
+	MOVQ	buf+0(FP), BX		// gobuf // FP指向入参起始位置，所以FP+0指向第一个入参，即gobuf
+	MOVQ	gobuf_g(BX), DX // 将gobuf.g存入DX
+	MOVQ	0(DX), CX		// make sure g != nil  // 将gobuf.g存入CX 确保 g != nil
+	JMP	gogo<>(SB)  // 跳转到gogo
 
 TEXT gogo<>(SB), NOSPLIT, $0
-	get_tls(CX)
-	MOVQ	DX, g(CX)
-	MOVQ	DX, R14		// set the g register
-	MOVQ	gobuf_sp(BX), SP	// restore SP
-	MOVQ	gobuf_ret(BX), AX
-	MOVQ	gobuf_ctxt(BX), DX
-	MOVQ	gobuf_bp(BX), BP
-	MOVQ	$0, gobuf_sp(BX)	// clear to help garbage collector
-	MOVQ	$0, gobuf_ret(BX)
-	MOVQ	$0, gobuf_ctxt(BX)
-	MOVQ	$0, gobuf_bp(BX)
-	MOVQ	gobuf_pc(BX), BX
-	JMP	BX
+	get_tls(CX) // 将TLS地址存入CX
+	MOVQ	DX, g(CX) // 将DX的值（gobuf.g）存入CX指向的地址（TLS）
+	MOVQ	DX, R14		// set the g register // 将DX的值（gobuf.g）存入R14
+	MOVQ	gobuf_sp(BX), SP	// restore SP // 将gobuf.sp存入SP
+	MOVQ	gobuf_ret(BX), AX   // 将gobuf.ret存入AX
+	MOVQ	gobuf_ctxt(BX), DX  // 将gobuf.ctxt存入DX
+	MOVQ	gobuf_bp(BX), BP    // 将gobuf.bp存入BP
+	MOVQ	$0, gobuf_sp(BX)	// clear to help garbage collector, // 将gobuf.sp清零
+	MOVQ	$0, gobuf_ret(BX)   // 将gobuf.ret清零
+	MOVQ	$0, gobuf_ctxt(BX)  // 将gobuf.ctxt清零
+	MOVQ	$0, gobuf_bp(BX)    // 将gobuf.bp清零
+	MOVQ	gobuf_pc(BX), BX    // 将gobuf.pc存入BX
+	JMP	BX                      // 跳转到BX指向的地址
 
 // func mcall(fn func(*g))
 // Switch to m->g0's stack, call fn(g).
